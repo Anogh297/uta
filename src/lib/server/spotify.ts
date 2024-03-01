@@ -3,6 +3,8 @@ import axios from 'axios';
 import type { SpotifyTrack, SpotifyPlaylist, SpotifyAlbum } from 'play-dl';
 import yt_dlp from '$lib/server/yt-dlp';
 import { PassThrough } from 'stream';
+import ffmpeg from 'fluent-ffmpeg';
+import { createReadStream, unlinkSync } from 'fs';
 
 const YT_DLP = new yt_dlp(`${process.cwd()}/${process.platform == 'win32' ? 'yt-dlp.exe' : 'yt-dlp_linux'}`);
 type SpotifyType = 'track' | 'playlist' | 'album' | undefined;
@@ -115,18 +117,38 @@ export default class Spotify {
 		}
 	}
 
-	static async stream(url: string /* metadata: Metadata */) {
+	static async stream(url: string, fast = 'false') {
 		try {
 			const id = await Spotify.getURL(url);
 
 			if (!id) {
 				throw new Error('Not found');
 			}
+			if (fast === 'true') {
+				return Spotify.fast_stream(id);
+			}
 
 			const streamBuffer = new PassThrough();
 
-			const yt_stream = YT_DLP.execStream([`https://www.youtube.com/watch?v=${id}`, '--no-part', '--no-playlist', '-f', 'm4a']);
-			yt_stream.pipe(streamBuffer);
+			await YT_DLP.execPromise([
+				`https://www.youtube.com/watch?v=${id}`,
+				'--no-playlist',
+				'-f',
+				'251',
+				'-o',
+				`/content/${id}.webm`
+			]);
+
+			ffmpeg(createReadStream(`${process.cwd()}/content/${id}.webm`))
+				.inputFormat('webm')
+				.toFormat('mp3')
+				.audioCodec('libmp3lame')
+				.on('end', () => {
+					unlinkSync(`${process.cwd()}/content/${id}.webm`);
+				})
+				.on('error', console.log)
+				.output(streamBuffer)
+				.run();
 
 			return new Promise((resolve) => {
 				resolve(streamBuffer);
@@ -134,5 +156,14 @@ export default class Spotify {
 		} catch (err) {
 			return;
 		}
+	}
+
+	static fast_stream(id: string) {
+		const streamBuffer = new PassThrough();
+
+		const yt_stream = YT_DLP.execStream([`https://www.youtube.com/watch?v=${id}`, '--no-part', '--no-playlist', '-f', 'm4a']);
+		yt_stream.pipe(streamBuffer);
+
+		return streamBuffer;
 	}
 }

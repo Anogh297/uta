@@ -4,13 +4,16 @@
 
 	import type { SpotifyTrack } from 'play-dl';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 
 	import axios from 'axios';
+	import { ID3Writer } from 'browser-id3-writer';
 	import { IconDownload, IconFileDownload } from '@tabler/icons-svelte';
 	import { modeUserPrefers, type ConicStop, ConicGradient } from '@skeletonlabs/skeleton';
-	import { addTracks, downloadAll, speed } from '$lib/stores/tracks';
+	import { addTracks, downloadAll, speed, fastMode } from '$lib/stores/tracks';
+	import saveAs from 'file-saver';
 
-	let button: DownloadButton = {} as HTMLButtonElement;
+	let button: DownloadButton;
 	onMount(() => {
 		addTracks([button]);
 		Object.assign(button, { download });
@@ -31,6 +34,8 @@
 		if (!button.anchor) {
 			if (state !== 'init') return;
 
+			const fast = get(fastMode);
+
 			state = 'loading';
 			text = 'Waiting...';
 
@@ -41,9 +46,13 @@
 				return;
 			}, 500);
 
+			const image = await axios.get(data.thumbnail?.url as string, {
+				responseType: 'blob'
+			});
 			const res = await axios.get('/api/download', {
 				params: {
-					url
+					url,
+					fast
 				},
 				responseType: 'arraybuffer',
 				onDownloadProgress: function ({ rate }) {
@@ -52,17 +61,44 @@
 					text = `Downloading (${$speed} mb/s)`;
 				}
 			});
-			const buffer = res.data;
+
+			let buffer = res.data;
+
+			if (!fast) {
+				const writer = new ID3Writer(res.data);
+				writer
+					.setFrame('TIT2', data.name)
+					.setFrame(
+						'TPE1',
+						data.artists.map((x) => x.name)
+					)
+					.setFrame('TPE2', data.artists[0].name)
+					.setFrame('TALB', data.album?.name)
+					.setFrame('TYER', data.album?.release_date)
+					.setFrame('TLEN', data.durationInMs)
+					.setFrame('APIC', {
+						type: 3,
+						data: await image.data.arrayBuffer(),
+						description: 'Cover',
+						useUnicodeEncoding: true
+					});
+				writer.addTag();
+
+				buffer = writer.arrayBuffer as ArrayBuffer;
+			}
+			speed.set('0');
 			state = 'finished';
 
 			const anchor = document.createElement('a');
 			const blob = new Blob([buffer], { type: 'audio/mpeg' });
 
 			anchor.href = URL.createObjectURL(blob);
-			anchor.download = `${data.artists[0].name} - ${data.name}.mp3`.replace(/[\/\\*:?<>\|]/g, '');
+			anchor.download = `${data.artists[0].name} - ${data.name}${fast ? '.m4a' : '.mp3'}`.replace(/[\/\\*:?<>\|]/g, '');
 
 			document.body.appendChild(anchor);
 			text = $downloadAll ? 'Saved!' : 'Save';
+
+			if (!$downloadAll) saveAs(blob, anchor.download);
 
 			Object.assign(button, { anchor });
 			return Promise.resolve(button);
@@ -81,9 +117,14 @@
 		class="btn rounded-full {disabled ? 'variant-filled-error' : 'variant-ghost-success hover:variant-ghost-primary'}"
 	>
 		<div class="flex align-middle">
-			<div class="pr-1 py-[2px]">
+			<div class="hidden sm:block pr-1.5">
 				{text}
 			</div>
+
+			{#if window.screen.width < 640 && $speed != '0' && state == 'loading'}
+				{text.slice(12)}
+			{/if}
+
 			{#if state == 'init'}
 				<div class="py-0.5">
 					<IconDownload color={$modeUserPrefers ? 'black' : 'white'} size={21} />

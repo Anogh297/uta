@@ -1,21 +1,23 @@
 <script lang="ts">
-	export let url = 'https://open.spotify.com/playlist/70slHSn0cnlN8TAJ1hDA5s';
+	export let url: string;
 	export let valid = false;
 
 	import axios from 'axios';
 	import type { SpotifyTrack } from 'play-dl';
+	import { SlideToggle } from '@skeletonlabs/skeleton';
 	import Track from '$components/track.svelte';
 	import DownloadAll from '$components/downloadAll.svelte';
-	import { filename } from '$lib/stores/tracks';
+	import { filename, fastMode, downloadAll } from '$lib/stores/tracks';
 
 	let tracks: SpotifyTrack[] = [];
 	const promise = (async (): Promise<typeof tracks> => {
 		try {
 			const res = await axios.get('/api/track', {
 				params: {
-					url
+					url: url.trim()
 				}
 			});
+
 			$filename = res.data.name;
 			const {
 				data: { tracks: trackList }
@@ -32,7 +34,21 @@
 		{#await promise}
 			Loading...
 		{:then tracks}
-			<DownloadAll />
+			<div class="flex justify-between">
+				<div class={$downloadAll ? 'grow' : ''}>
+					<DownloadAll />
+				</div>
+
+				{#if !$downloadAll}
+					<div class="flex justify-between items-center mr-5">
+						<span class="pr-2 text-xs md:text-sm lg:text-base">
+							{$fastMode ? 'M4A <Fast mode enabled>' : 'MP3 <Rich mode enabled>'}
+						</span>
+						<SlideToggle name="slide" bind:checked={$fastMode} />
+					</div>
+				{/if}
+			</div>
+
 			{#each tracks as track}
 				<Track data={track} />
 			{/each}

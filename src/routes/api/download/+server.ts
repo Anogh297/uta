@@ -6,6 +6,7 @@ export async function GET({ request }) {
 	try {
 		const { searchParams } = new URL(request.url);
 		const url = searchParams.get('url');
+		const fast = searchParams.get('fast');
 
 		if (!url) return error(404, 'Please provide a valid spotify url.');
 
@@ -13,7 +14,7 @@ export async function GET({ request }) {
 		if (!regex) return error(404, 'Invalid url provided');
 
 		if (url && regex) {
-			const stream = (await App.stream(url)) as Readable;
+			const stream = (await App.stream(url, fast as string)) as Readable;
 
 			return new Response(Readable.toWeb(stream) as never, {
 				headers: {

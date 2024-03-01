@@ -3,7 +3,7 @@
 
 import { EventEmitter } from 'events';
 import {
-	ChildProcess,
+	type ChildProcess,
 	type ChildProcessWithoutNullStreams,
 	execFile,
 	execSync,
@@ -15,7 +15,7 @@ import fs from 'fs';
 import https from 'https';
 import os from 'os';
 import { Readable } from 'stream';
-import { IncomingMessage } from 'http';
+import type { IncomingMessage } from 'http';
 
 const executableName = 'yt-dlp';
 const progressRegex = /\[download\] *(.*) of ([^ ]*)(:? *at *([^ ]*))?(:? *ETA *([^ ]*))?/;

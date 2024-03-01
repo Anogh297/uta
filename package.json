@@ -4,7 +4,7 @@
 	"author": "Zafir Hasan Anogh",
 	"scripts": {
 		"start": "node build",
-		"dev": "vite dev --open",
+		"dev": "vite dev --open --host",
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "npm run test:integration && npm run test:unit",
@@ -53,6 +53,7 @@
 		"@floating-ui/dom": "1.6.1",
 		"@tabler/icons-svelte": "^2.47.0",
 		"axios": "^1.6.7",
+		"browser-id3-writer": "^6.1.0",
 		"buffer": "^6.0.3",
 		"chalk": "^5.3.0",
 		"file-saver": "^2.0.5",

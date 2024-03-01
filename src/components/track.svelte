@@ -18,8 +18,8 @@
 		</div>
 
 		<!-- name and artists -->
-		<div class="flex flex-col pt-2">
-			<div class="text-lg text-surface-900-50-token">
+		<div class="flex flex-col align-middle my-auto">
+			<div class="sm:text-sm lg:text-base text-surface-900-50-token">
 				{name}
 			</div>
 			<div class="font-thin text-surface-600-300-token text-sm">
