@@ -18,7 +18,7 @@
 				<svelte:fragment slot="lead">
 					<Avatar src={'/logo.svg'} width="w-8" rounded="rounded-full" />
 				</svelte:fragment>
-				<div class="font-bold text-2xl bg-clip-text text-transparent gradient-heading">
+				<div class="font-bold text-base sm:text-xl md:text-2xl bg-clip-text text-transparent gradient-heading">
 					<a href="/">Uta - Spotify downloader</a>
 				</div>
 				<svelte:fragment slot="trail">
