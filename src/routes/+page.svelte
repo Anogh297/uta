@@ -59,15 +59,17 @@
 				<div class="flex flex-col">
 					<span class="font-medium text-base sm:text-xl"># Wait what is uta?</span>
 					<span class="text-surface-600-300-token text-sm sm:text-base pl-4">
-						<span class="text-primary-500">Uta</span> is a free to use application which you can use to download songs from spotify!
+						<span class="text-primary-500">Uta</span> is a convenient and free application designed for downloading songs from Spotify
+						hassle-free.
 					</span>
 				</div>
 
 				<div class="flex flex-col">
 					<span class="font-medium text-base sm:text-xl"># How do I use Uta?</span>
 					<span class="text-surface-600-300-token text-sm sm:text-base pl-4">
-						Simply go to Spotify &gt Share &gt Copy Song Link &gt Paste the link to the search bar above and voila! Uta currently
-						supports track, album and playlists
+						To utilize Uta, navigate to Spotify, select the desired song, album, or playlist, then click 'Share' followed by 'Copy
+						Song Link'. Next, paste the link into Uta's search bar, and instantly access your preferred music for download. With
+						support for tracks, albums, and playlists, Uta ensures a seamless experience for all your musical needs.
 					</span>
 				</div>
 			</div>
