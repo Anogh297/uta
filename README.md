@@ -83,9 +83,8 @@ The project will be compiled to `build` folder
 
 ## Roadmap
 
-- Add Youtube support
-
-- Append metadata to the downloaded m4a files
+- [x] Add metadata Support
+- [ ] Add Youtube support
 
 ## Support
 
