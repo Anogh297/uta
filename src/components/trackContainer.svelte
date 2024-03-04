@@ -22,7 +22,14 @@
 			const {
 				data: { tracks: trackList }
 			} = res;
-			return (tracks = tracks.concat(trackList));
+			tracks = tracks.concat(trackList);
+
+			if (res.data.type == 'album') {
+				tracks.forEach((track) => {
+					track.thumbnail = res.data.thumbnail;
+				});
+			}
+			return tracks;
 		} catch (error) {
 			throw new Error('404');
 		}

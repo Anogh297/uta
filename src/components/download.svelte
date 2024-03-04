@@ -46,9 +46,6 @@
 				return;
 			}, 500);
 
-			const image = await axios.get(data.thumbnail?.url as string, {
-				responseType: 'blob'
-			});
 			const res = await axios.get('/api/download', {
 				params: {
 					url,
@@ -75,13 +72,19 @@
 					.setFrame('TPE2', data.artists[0].name)
 					.setFrame('TALB', data.album?.name)
 					.setFrame('TYER', data.album?.release_date)
-					.setFrame('TLEN', data.durationInMs)
-					.setFrame('APIC', {
+					.setFrame('TLEN', data.durationInMs);
+
+				if (data.thumbnail?.url) {
+					const image = await axios.get(data.thumbnail?.url as string, {
+						responseType: 'blob'
+					});
+					writer.setFrame('APIC', {
 						type: 3,
 						data: await image.data.arrayBuffer(),
 						description: 'Cover',
 						useUnicodeEncoding: true
 					});
+				}
 				writer.addTag();
 
 				buffer = writer.arrayBuffer as ArrayBuffer;

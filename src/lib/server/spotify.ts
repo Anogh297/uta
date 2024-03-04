@@ -14,6 +14,11 @@ export default class Spotify {
 	type: SpotifyType;
 	name: string = '';
 	valid: boolean = false;
+	thumbnail?: {
+		height: number;
+		url: string;
+		width: number;
+	};
 	tracks: SpotifyTrack[] = [];
 
 	constructor(private url: string) {
@@ -34,6 +39,8 @@ export default class Spotify {
 			}
 
 			const spotify = await play.spotify(url);
+
+			if (spotify.thumbnail) this.thumbnail = spotify.thumbnail;
 
 			this.name = spotify.name;
 			switch (spotify.type) {
