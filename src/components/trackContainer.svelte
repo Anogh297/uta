@@ -23,12 +23,6 @@
 				data: { tracks: trackList }
 			} = res;
 			tracks = tracks.concat(trackList);
-
-			if (res.data.type == 'album') {
-				tracks.forEach((track) => {
-					track.thumbnail = res.data.thumbnail;
-				});
-			}
 			return tracks;
 		} catch (error) {
 			throw new Error('404');

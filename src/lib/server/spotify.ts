@@ -6,6 +6,9 @@ import { PassThrough } from 'stream';
 import ffmpeg from 'fluent-ffmpeg';
 import { createReadStream, unlinkSync } from 'fs';
 
+import { path } from '@ffmpeg-installer/ffmpeg';
+ffmpeg.setFfmpegPath(path);
+
 const YT_DLP = new yt_dlp(`${process.cwd()}/${process.platform == 'win32' ? 'yt-dlp.exe' : 'yt-dlp_linux'}`);
 type SpotifyType = 'track' | 'playlist' | 'album' | undefined;
 
@@ -14,10 +17,11 @@ export default class Spotify {
 	type: SpotifyType;
 	name: string = '';
 	valid: boolean = false;
-	thumbnail?: {
-		height: number;
-		url: string;
-		width: number;
+	album?: {
+		name: string;
+		id: string;
+		release_date: string;
+		release_date_precision: string;
 	};
 	tracks: SpotifyTrack[] = [];
 
@@ -40,8 +44,6 @@ export default class Spotify {
 
 			const spotify = await play.spotify(url);
 
-			if (spotify.thumbnail) this.thumbnail = spotify.thumbnail;
-
 			this.name = spotify.name;
 			switch (spotify.type) {
 				case 'track':
@@ -55,6 +57,14 @@ export default class Spotify {
 					break;
 				default:
 					break;
+			}
+
+			if (spotify.type == 'album') {
+				const { name, id, release_date, release_date_precision, url, total_tracks } = spotify as SpotifyAlbum;
+				this.tracks.forEach((track) => {
+					track.thumbnail = spotify.thumbnail;
+					track.album = { name, id, release_date, release_date_precision, url, total_tracks };
+				});
 			}
 
 			return new Promise((resolve, reject) => {
