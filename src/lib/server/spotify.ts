@@ -120,20 +120,6 @@ export default class Spotify {
 		}
 	}
 
-	static async getDownloadURL(url: string): Promise<string> {
-		try {
-			const id = await Spotify.getURL(url);
-
-			if (!id) {
-				throw new Error('Not found');
-			}
-			const output = await YT_DLP.execPromise([`https://www.youtube.com/watch?v=${id}`, '--get-url', '--no-playlist']);
-			return output;
-		} catch (err) {
-			throw new Error(`${err}`);
-		}
-	}
-
 	static async stream(url: string, fast = 'false') {
 		try {
 			const id = await Spotify.getURL(url);
