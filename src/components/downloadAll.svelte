@@ -42,8 +42,8 @@
 		let x = 0;
 
 		const interval = setInterval(() => {
-			text =
-				`Downloading${'.'.repeat((x % 3) + 1)}${'\xa0'.repeat(2 - (x % 3))} ` + `${i + 1} / ${$tracks.length} @ ${$speed} mb/s`;
+			text = `Downloading${'.'.repeat((x % 3) + 1)}${'\xa0'.repeat(2 - (x % 3))} ` + `${i + 1} / ${$tracks.length}`;
+			//  @ ${$speed} mb/s
 			x++;
 			return;
 		}, 500);
@@ -61,7 +61,7 @@
 
 			if (track.anchor) {
 				const blob = await axios.get(track.anchor.href, { responseType: 'arraybuffer' });
-				zip.file(track.anchor.download, blob.data);
+				zip.file(track.anchor.download.concat('.m4a'), blob.data);
 				track.disabled = true;
 				URL.revokeObjectURL(track.anchor.href);
 			}
