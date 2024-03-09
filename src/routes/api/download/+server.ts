@@ -5,16 +5,16 @@ import { Readable } from 'stream';
 export async function GET({ request }) {
 	try {
 		const { searchParams } = new URL(request.url);
-		const url = searchParams.get('url');
-		const fast = searchParams.get('fast');
+		const data = JSON.parse(searchParams.get('data') as string);
+		const { url } = data;
 
 		if (!url) return error(404, 'Please provide a valid spotify url.');
 
 		const regex = url.match(/spotify.com\/(.+)\/([^?]+)/i);
 		if (!regex) return error(404, 'Invalid url provided');
 
-		if (url && regex) {
-			const stream = (await App.stream(url, fast as string)) as Readable;
+		if (data && regex) {
+			const stream = (await App.stream(data)) as Readable;
 
 			return new Response(Readable.toWeb(stream) as never, {
 				headers: {

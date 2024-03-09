@@ -1,15 +1,13 @@
 import play from 'play-dl';
 import axios from 'axios';
-import type { SpotifyTrack, SpotifyPlaylist, SpotifyAlbum } from 'play-dl';
 import yt_dlp from '$lib/server/yt-dlp';
 import { PassThrough } from 'stream';
-import ffmpeg from 'fluent-ffmpeg';
-import { createReadStream, unlinkSync } from 'fs';
+import { spawn } from 'child_process';
+import type { SpotifyTrack, SpotifyPlaylist, SpotifyAlbum } from 'play-dl';
+import { createReadStream, createWriteStream } from 'fs';
+import { access, unlink } from 'fs/promises';
 
-import { path } from '@ffmpeg-installer/ffmpeg';
-ffmpeg.setFfmpegPath(path);
-
-const YT_DLP = new yt_dlp(`${process.cwd()}/${process.platform == 'win32' ? 'yt-dlp.exe' : 'yt-dlp_linux'}`);
+const YT_DLP = new yt_dlp(`${process.cwd()}/binaries/${process.platform == 'win32' ? 'yt-dlp.exe' : 'yt-dlp_linux'}`);
 type SpotifyType = 'track' | 'playlist' | 'album' | undefined;
 
 export default class Spotify {
@@ -120,53 +118,72 @@ export default class Spotify {
 		}
 	}
 
-	static async stream(url: string, fast = 'false') {
+	static async stream(data: SpotifyTrack) {
+		const id = await Spotify.getURL(data.url);
+		if (!id) {
+			throw new Error(`Could not resolve an id for ${data.name}`);
+		}
+
+		const streamBuffer = new PassThrough();
+
 		try {
-			const id = await Spotify.getURL(url);
+			const { name, artists, album, thumbnail } = data;
 
-			if (!id) {
-				throw new Error('Not found');
-			}
-			if (fast === 'true') {
-				return Spotify.fast_stream(id);
-			}
+			const fileName = `${process.cwd()}/content/${id}`;
 
-			const streamBuffer = new PassThrough();
+			axios
+				.get(thumbnail!.url, {
+					responseType: 'stream'
+				})
+				.then((x) => x.data.pipe(createWriteStream(`${fileName}.jpeg`)));
 
 			await YT_DLP.execPromise([
 				`https://www.youtube.com/watch?v=${id}`,
+				'--no-part',
 				'--no-playlist',
 				'-f',
-				'251',
+				'm4a',
 				'-o',
-				`/content/${id}.webm`
+				`${fileName}.m4a`
 			]);
 
-			ffmpeg(createReadStream(`${process.cwd()}/content/${id}.webm`))
-				.inputFormat('webm')
-				.toFormat('mp3')
-				.audioCodec('libmp3lame')
-				.on('end', () => {
-					unlinkSync(`${process.cwd()}/content/${id}.webm`);
-				})
-				.on('error', console.log)
-				.output(streamBuffer)
-				.run();
+			const tag = spawn(`${process.cwd()}/binaries/${process.platform == 'win32' ? 'tageditor-cli.exe' : 'tageditor_linux'}`, [
+				'set',
+				`title=${name}`,
+				`artist=${artists.map((x) => x.name).join(', ')}`,
+				`album=${album?.name}`,
+				`albumartist=${artists[0].name}`,
+				`releasedate=${album?.release_date}`,
+				`recorddate=${album?.release_date.split('-')[0]}`,
+				`cover=${fileName}.jpeg`,
+				`encoder=Zafir Hasan Anogh`,
+				`-f`,
+				`${fileName}.m4a`
+			]);
 
-			return new Promise((resolve) => {
-				resolve(streamBuffer);
+			tag.on('error', console.log);
+			tag.on('close', async () => {
+				try {
+					await access(`${fileName}.m4a`);
+					createReadStream(`${fileName}.m4a`).pipe(streamBuffer);
+				} catch {
+					// Ignore, user aborted
+				}
+			});
+
+			streamBuffer.on('close', async () => {
+				try {
+					await unlink(`${fileName}.jpeg`);
+					await unlink(`${fileName}.m4a`);
+					await unlink(`${fileName}.m4a.bak`);
+				} catch {
+					// Ignore file deletion
+				}
 			});
 		} catch (err) {
-			return;
+			return Promise.reject(err);
 		}
-	}
 
-	static fast_stream(id: string) {
-		const streamBuffer = new PassThrough();
-
-		const yt_stream = YT_DLP.execStream([`https://www.youtube.com/watch?v=${id}`, '--no-part', '--no-playlist', '-f', 'm4a']);
-		yt_stream.pipe(streamBuffer);
-
-		return streamBuffer;
+		return Promise.resolve(streamBuffer);
 	}
 }

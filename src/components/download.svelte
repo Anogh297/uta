@@ -1,16 +1,13 @@
 <script lang="ts">
-	export let url: string;
 	export let data: SpotifyTrack;
 
 	import type { SpotifyTrack } from 'play-dl';
 	import { onMount } from 'svelte';
-	import { get } from 'svelte/store';
 
 	import axios from 'axios';
-	import { ID3Writer } from 'browser-id3-writer';
 	import { IconDownload, IconFileDownload } from '@tabler/icons-svelte';
 	import { modeUserPrefers, type ConicStop, ConicGradient } from '@skeletonlabs/skeleton';
-	import { addTracks, downloadAll, speed, fastMode } from '$lib/stores/tracks';
+	import { addTracks, downloadAll } from '$lib/stores/tracks';
 	import saveAs from 'file-saver';
 
 	let button: DownloadButton;
@@ -24,6 +21,7 @@
 	type State = 'init' | 'loading' | 'finished';
 	$: state = 'init' as State;
 	$: disabled = false;
+	$: speed = '0';
 
 	const conicStops: ConicStop[] = [
 		{ color: 'transparent', start: 0, end: 25 },
@@ -31,82 +29,57 @@
 	];
 
 	async function download() {
-		if (!button.anchor) {
-			if (state !== 'init') return;
+		let interval: NodeJS.Timeout;
+		try {
+			if (!button.anchor) {
+				if (state !== 'init') return;
 
-			const fast = get(fastMode);
+				state = 'loading';
+				text = 'Waiting...';
 
-			state = 'loading';
-			text = 'Waiting...';
+				let x = 0;
+				interval = setInterval(() => {
+					text = `Waiting${'.'.repeat((x % 3) + 1)}${'\xa0'.repeat(2 - (x % 3))}`;
+					x++;
+					return;
+				}, 500);
 
-			let x = 0;
-			const interval = setInterval(() => {
-				text = `Waiting${'.'.repeat((x % 3) + 1)}${'\xa0'.repeat(2 - (x % 3))}`;
-				x++;
-				return;
-			}, 500);
+				const res = await axios.get('/api/download', {
+					params: {
+						data: JSON.stringify(data)
+					},
+					responseType: 'arraybuffer',
+					onDownloadProgress: function ({ rate }) {
+						speed = `${(((rate || 0) * 8) / 1000000).toFixed(2)}`;
+						clearInterval(interval);
+						text = `Downloading (${speed} mb/s)`;
+					}
+				});
 
-			const res = await axios.get('/api/download', {
-				params: {
-					url,
-					fast
-				},
-				responseType: 'arraybuffer',
-				onDownloadProgress: function ({ rate }) {
-					speed.set(`${(((rate || 0) * 8) / 1000000).toFixed(2)}`);
-					clearInterval(interval);
-					text = `Downloading (${$speed} mb/s)`;
-				}
-			});
+				let buffer = res.data;
+				state = 'finished';
 
-			let buffer = res.data;
+				const anchor = document.createElement('a');
+				const blob = new Blob([buffer], { type: 'audio/mp4' });
 
-			if (!fast) {
-				const writer = new ID3Writer(res.data);
-				writer
-					.setFrame('TIT2', data.name)
-					.setFrame(
-						'TPE1',
-						data.artists.map((x) => x.name)
-					)
-					.setFrame('TPE2', data.artists[0].name)
-					.setFrame('TALB', data.album?.name)
-					.setFrame('TYER', data.album?.release_date)
-					.setFrame('TLEN', data.durationInMs);
+				anchor.href = URL.createObjectURL(blob);
+				anchor.download = `${data.artists[0].name} - ${data.name}`.replace(/[\/\\*:?<>\|]/g, '');
 
-				if (data.thumbnail?.url) {
-					const image = await axios.get(data.thumbnail?.url as string, {
-						responseType: 'blob'
-					});
-					writer.setFrame('APIC', {
-						type: 3,
-						data: await image.data.arrayBuffer(),
-						description: 'Cover',
-						useUnicodeEncoding: true
-					});
-				}
-				writer.addTag();
+				document.body.appendChild(anchor);
+				text = $downloadAll ? 'Saved!' : 'Save';
 
-				buffer = writer.arrayBuffer as ArrayBuffer;
+				if (!$downloadAll) saveAs(blob, anchor.download);
+
+				Object.assign(button, { anchor });
+				return Promise.resolve(button);
+			} else {
+				button.anchor.click();
 			}
-			speed.set('0');
+		} catch {
+			disabled = true;
+			if (interval!) clearInterval(interval);
 			state = 'finished';
-
-			const anchor = document.createElement('a');
-			const blob = new Blob([buffer], { type: 'audio/mpeg' });
-
-			anchor.href = URL.createObjectURL(blob);
-			anchor.download = `${data.artists[0].name} - ${data.name}${fast ? '.m4a' : '.mp3'}`.replace(/[\/\\*:?<>\|]/g, '');
-
-			document.body.appendChild(anchor);
-			text = $downloadAll ? 'Saved!' : 'Save';
-
-			if (!$downloadAll) saveAs(blob, anchor.download);
-
-			Object.assign(button, { anchor });
-			return Promise.resolve(button);
-		} else {
-			button.anchor.click();
+			text = 'Failed';
 		}
 	}
 </script>
@@ -117,14 +90,14 @@
 		on:click={download}
 		bind:this={button}
 		{disabled}
-		class="btn rounded-full {disabled ? 'variant-filled-error' : 'variant-ghost-success hover:variant-ghost-primary'}"
+		class="btn rounded-full {disabled ? 'variant-ghost-error' : 'variant-ghost-success hover:variant-ghost-primary'}"
 	>
 		<div class="flex align-middle">
 			<div class="hidden sm:block pr-1.5">
 				{text}
 			</div>
 
-			{#if window.screen.width < 640 && $speed != '0' && state == 'loading'}
+			{#if window.screen.width < 640 && speed != '0' && state == 'loading'}
 				{text.slice(12)}
 			{/if}
 

@@ -29,7 +29,7 @@
 
 		<div class="flex align-middle p-3 ml-auto">
 			<!-- download button -->
-			<Download {url} {data} />
+			<Download {data} />
 		</div>
 	</div>
 </div>
