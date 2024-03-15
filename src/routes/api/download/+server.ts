@@ -24,6 +24,6 @@ export async function GET({ request }) {
 			});
 		}
 	} catch (err) {
-		error(403, `${err}`);
+		return error(403, `${err}`);
 	}
 }

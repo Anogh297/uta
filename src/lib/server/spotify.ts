@@ -1,11 +1,12 @@
 import play from 'play-dl';
 import axios from 'axios';
-import yt_dlp from '$lib/server/yt-dlp';
 import { PassThrough } from 'stream';
-import { spawn } from 'child_process';
-import type { SpotifyTrack, SpotifyPlaylist, SpotifyAlbum } from 'play-dl';
-import { createReadStream, createWriteStream } from 'fs';
+import yt_dlp from '$lib/server/yt-dlp';
 import { access, unlink } from 'fs/promises';
+import { path } from '@ffmpeg-installer/ffmpeg';
+import { createReadStream, createWriteStream } from 'fs';
+import type { SpotifyTrack, SpotifyPlaylist, SpotifyAlbum } from 'play-dl';
+import { exec } from 'child_process';
 
 const YT_DLP = new yt_dlp(`${process.cwd()}/binaries/${process.platform == 'win32' ? 'yt-dlp.exe' : 'yt-dlp_linux'}`);
 type SpotifyType = 'track' | 'playlist' | 'album' | undefined;
@@ -137,7 +138,7 @@ export default class Spotify {
 				})
 				.then((x) => x.data.pipe(createWriteStream(`${fileName}.jpeg`)));
 
-			await YT_DLP.execPromise([
+			YT_DLP.execPromise([
 				`https://www.youtube.com/watch?v=${id}`,
 				'--no-part',
 				'--no-playlist',
@@ -145,37 +146,51 @@ export default class Spotify {
 				'm4a',
 				'-o',
 				`${fileName}.m4a`
-			]);
-
-			const tag = spawn(`${process.cwd()}/binaries/${process.platform == 'win32' ? 'tageditor-cli.exe' : 'tageditor_linux'}`, [
-				'set',
-				`title=${name}`,
-				`artist=${artists.map((x) => x.name).join(', ')}`,
-				`album=${album?.name}`,
-				`albumartist=${artists[0].name}`,
-				`releasedate=${album?.release_date}`,
-				`recorddate=${album?.release_date.split('-')[0]}`,
-				`cover=${fileName}.jpeg`,
-				`encoder=Zafir Hasan Anogh`,
-				`-f`,
-				`${fileName}.m4a`
-			]);
-
-			tag.on('error', console.log);
-			tag.on('close', async () => {
-				try {
-					await access(`${fileName}.m4a`);
-					createReadStream(`${fileName}.m4a`).pipe(streamBuffer);
-				} catch {
-					// Ignore, user aborted
-				}
+			]).then(() => {
+				exec(
+					path +
+						' ' +
+						[
+							`-i ${fileName}.m4a`,
+							`-i ${fileName}.jpeg`,
+							'-y',
+							'-map 0',
+							'-map 1',
+							'-c copy',
+							'-metadata:s:v title="Album cover"',
+							'-metadata:s:v comment="Cover (Front)"',
+							'-disposition:v:0 attached_pic',
+							`-metadata title="${name}"`,
+							`-metadata artist="${artists[0].name}"`,
+							// `artist="${artists.map((x) => x.name).join('\\\\')}"`,
+							`-metadata album="${album?.name}"`,
+							`-metadata album_artist="${artists[0].name}"`,
+							`-metadata date=${album?.release_date.split('-')[0]}`,
+							`${fileName}.out.m4a`
+						].join(' ')
+				)
+					.on('spawn', () => {
+						console.log('Spawned ffmpeg');
+					})
+					.on('close', async () => {
+						try {
+							await access(`${fileName}.out.m4a`);
+							createReadStream(`${fileName}.out.m4a`).pipe(streamBuffer);
+						} catch {
+							// Ignore, user aborted
+						}
+					})
+					.on('error', (err) => {
+						console.error('Error adding metadata:', err);
+						return Promise.reject(err);
+					});
 			});
 
 			streamBuffer.on('close', async () => {
 				try {
 					await unlink(`${fileName}.jpeg`);
 					await unlink(`${fileName}.m4a`);
-					await unlink(`${fileName}.m4a.bak`);
+					await unlink(`${fileName}.out.m4a`);
 				} catch {
 					// Ignore file deletion
 				}
